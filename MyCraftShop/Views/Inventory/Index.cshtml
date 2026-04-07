@@ -1,0 +1,153 @@
+@model IEnumerable<MyCraftShop.Models.InventoryItem>
+
+@{
+    ViewData["Title"] = "Inventory Management";
+    int currentPage = ViewBag.CurrentPage;
+    int totalPages = ViewBag.TotalPages;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Inventory Management</h2>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Create New Item
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No inventory items found. Click <strong>Create New Item</strong> to add one.</div>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+        @foreach (var item in Model)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@item.Name</h5>
+                        @if (!string.IsNullOrEmpty(item.Description))
+                        {
+                            <p class="card-text text-muted small">@item.Description</p>
+                        }
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Cost Per Item:</strong> @item.CostPerItem.ToString("C")</li>
+                            <li><strong>Sales Price:</strong> @(item.SalesPrice.HasValue ? item.SalesPrice.Value.ToString("C") : "N/A")</li>
+                            <li><strong>Quantity:</strong> @item.Quantity.ToString("G")</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <button class="btn btn-sm btn-outline-secondary edit-btn"
+                                data-id="@item.Id"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editModal">
+                            Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-btn"
+                                data-id="@item.Id"
+                                data-name="@item.Name"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deleteModal">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (totalPages > 1)
+    {
+        <nav aria-label="Inventory pagination">
+            <ul class="pagination justify-content-center">
+                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage - 1)">Previous</a>
+                </li>
+                @for (int i = 1; i <= totalPages; i++)
+                {
+                    <li class="page-item @(i == currentPage ? "active" : "")">
+                        <a class="page-link" asp-action="Index" asp-route-page="@i">@i</a>
+                    </li>
+                }
+                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage + 1)">Next</a>
+                </li>
+            </ul>
+        </nav>
+    }
+}
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <strong id="deleteItemName"></strong>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit Inventory Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="editModalBody">
+                <div class="text-center py-3">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Delete modal
+        document.querySelectorAll('.delete-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = this.getAttribute('data-id');
+                var name = this.getAttribute('data-name');
+                document.getElementById('deleteItemName').textContent = name;
+                document.getElementById('deleteForm').action = '/Inventory/Delete/' + encodeURIComponent(id);
+            });
+        });
+
+        // Edit modal - load partial view via AJAX
+        var editModal = document.getElementById('editModal');
+        editModal.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            var id = btn.getAttribute('data-id');
+            var modalBody = document.getElementById('editModalBody');
+            modalBody.innerHTML = '<div class="text-center py-3"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+
+            fetch('/Inventory/Edit/' + encodeURIComponent(id))
+                .then(function (response) {
+                    return response.text();
+                })
+                .then(function (html) {
+                    modalBody.innerHTML = html;
+                })
+                .catch(function () {
+                    modalBody.innerHTML = '<div class="alert alert-danger">Failed to load edit form.</div>';
+                });
+        });
+    </script>
+}
